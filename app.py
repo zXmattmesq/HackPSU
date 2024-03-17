@@ -8,23 +8,31 @@ from dotenv import load_dotenv
 import streamlit as st
 load_dotenv()
 
-loader = CSVLoader(file_path=r"output.csv")
-documents = loader.load()
-
-embeddings = OpenAIEmbeddings()
-vectorstore = FAISS.from_documents(documents, embeddings)
-
 def vector_search(query):
-    similar_response = vectorstore.similarity_search(query, k=3)
+    documents = []
 
-    contents_array = [doc.page_content for doc in similar_response]
+    # Load documents from each CSV file
+    for i in range(2, 4):
+        file_path = f"tokenized_data_{i}.csv"
+        loader = CSVLoader(file_path=file_path)
+        documents.extend(loader.load())
 
-    return contents_array
+    # Create vector store from loaded documents
+    embeddings = OpenAIEmbeddings()
+    vectorstore = FAISS.from_documents(documents, embeddings)
+
+    # Search for similar documents for the given query
+    similar_responses = []
+    for i in range(4):
+        similar_response = vectorstore.similarity_search(query, k=2)
+        similar_responses.extend([doc.page_content for doc in similar_response])
+
+    return similar_responses
 
 model = ChatOpenAI(temperature=0, model="gpt-3.5-turbo-0125")
 
 template = """
-You are playing the role of an advisor at Penn State university. Based on the previous best practice examples bellow, answer the question:
+Based on the previous best practice examples bellow, answer the question:
 
 Question:
 
@@ -34,7 +42,8 @@ Past Examples:
 
 {vector_search_results}
 
-Be human and friendly but most importantly do not answer anything an advior would not, and do not fabricate, invent, or extrapolate information.
+Be human and friendly but most importantly do not answer anything an advior would not, and do not fabricate, invent, or extrapolate information. be specific to the examples and question, make sure to directly reference the best match of question and previous examples.
+As an advisor, you must respond as if having a conversation. Do not mention that you are an AI, that you are an advisor, or that you were given best practice examplse.
 
 """
 
@@ -57,18 +66,22 @@ def get_response(input_message):
 
 def main():
     st.set_page_config(
-        page_title="Penn State Advisor"
+        page_title="Kweery"
     )
 
-    st.header("PSU Advisor")
-    message = st.text_area("message")
+    col1, col2 = st.columns([1, 3])  
+    col1.image("guy.png", use_column_width=True) 
 
-    if message:
-        st.write("Thinking...")
+    with col2:
+        st.header("Kweery")
+        message = st.text_area("What do you want to ask me?", height=200)  
 
-        result = get_response(message)
-
-        st.info(result)
+        if message:
+            result = get_response(message)
+            st.write(" "*20) 
+            st.write(" "*20) 
+            st.write("One second I'm thinking...")
+            st.info(result)
 
 if __name__ == '__main__':
     main()
